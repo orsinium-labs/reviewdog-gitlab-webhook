@@ -12,6 +12,7 @@ require (
 	github.com/hashicorp/go-retryablehttp v0.6.8 // indirect
 	github.com/kr/text v0.2.0 // indirect
 	github.com/otiai10/copy v1.4.2
+	github.com/rakyll/statik v0.1.7
 	github.com/reviewdog/errorformat v0.0.0-20210108094505-14ca1bbbde27 // indirect
 	github.com/reviewdog/reviewdog v0.11.0
 	github.com/stretchr/testify v1.6.1 // indirect
