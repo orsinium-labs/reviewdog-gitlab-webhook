@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -99,9 +100,11 @@ func (r Reviewer) Review(format string, reader io.Reader) error {
 func (r Reviewer) Flake8() error {
 	reader, writer := io.Pipe()
 
-	cmd := exec.Command("flake8", "--max-line-length=120")
+	cmd := exec.Command("flake8", "--max-line-length=120", "--exit-zero")
 	cmd.Dir = r.Path
 	cmd.Stdout = writer
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
 	var cmderr error
 	go func() {
 		cmderr = cmd.Run()
@@ -110,7 +113,7 @@ func (r Reviewer) Flake8() error {
 
 	err := r.Review("flake8", reader)
 	if cmderr != nil {
-		return fmt.Errorf("error running command: %v", cmderr)
+		return fmt.Errorf("error running command: %v: %s", cmderr, stderr.String())
 	}
 	if err != nil {
 		return fmt.Errorf("error running reviewdog: %v", err)
