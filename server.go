@@ -51,8 +51,12 @@ func (s Server) Handle(writer http.ResponseWriter, request *http.Request) {
 }
 
 func (s Server) review(body []byte) {
-	// get repo url and branch name
 	json := gjson.Parse(string(body))
+	kind := json.Get("object_kind").String()
+	if kind != "merge_request" {
+		s.logger.DebugWith("skipping").String("object_kind", kind).Write()
+		return
+	}
 	url := json.Get("project.git_http_url").String()
 	if url == "" {
 		s.logger.Error("url is empty")
@@ -65,16 +69,32 @@ func (s Server) review(body []byte) {
 	}
 
 	// clone repo, fetch, checkout to the branch
+	s.logger.InfoWith("starting repo operations").String("url", url).Write()
 	repo, err := NewRepo(s.Repos, URL(url))
 	if err != nil {
-		s.logger.ErrorWith("cannot make repo").Err("error", err).Write()
+		s.logger.ErrorWith("cannot init Repo").Err("error", err).Write()
 		return
 	}
+	s.logger.InfoWith("clonning").String("url", url).Write()
+	err = repo.Clone()
+	if err != nil {
+		s.logger.ErrorWith("cannot clone").Err("error", err).Write()
+		return
+	}
+	s.logger.InfoWith("fetching").String("url", url).Write()
+	err = repo.Fetch()
+	if err != nil {
+		s.logger.ErrorWith("cannot fetch").Err("error", err).Write()
+		return
+	}
+	s.logger.InfoWith("checking out").String("url", url).Write()
 	path, err := repo.Checkout(branch)
 	if err != nil {
 		s.logger.ErrorWith("cannot checkout").Err("error", err).Write()
 		return
 	}
+	s.logger.InfoWith("repo operations finished").String("url", url).Write()
+	defer os.RemoveAll(path)
 
 	reviewer := Reviewer{
 		Path:    path,
@@ -83,13 +103,25 @@ func (s Server) review(body []byte) {
 	}
 	reviewer = reviewer.ForPR(json)
 
-	log := s.logger.ErrorWith("cannot review").String("repo", reviewer.Repo)
-
+	s.logger.InfoWith("review").
+		String("repo", reviewer.Repo).
+		String("tool", "flake8").
+		String("state", "running").
+		Write()
 	err = reviewer.Flake8()
 	if err != nil {
-		log.String("tool", "flake8").Err("error", err).Write()
+		s.logger.ErrorWith("review").
+			String("repo", reviewer.Repo).
+			String("tool", "flake8").
+			Err("error", err).
+			Write()
 		return
 	}
+	s.logger.InfoWith("review").
+		String("repo", reviewer.Repo).
+		String("tool", "flake8").
+		String("state", "finished").
+		Write()
 
 }
 

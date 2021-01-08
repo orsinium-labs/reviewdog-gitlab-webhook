@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"crypto/md5"
 	"fmt"
 	"io"
@@ -8,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"strings"
 
 	"github.com/otiai10/copy"
 )
@@ -42,67 +44,69 @@ func NewRepo(root Path, url URL) (*Repo, error) {
 	return &r, nil
 }
 
-func (r Repo) clone() error {
+func (r Repo) Clone() error {
 	// do nothing if already exists
 	_, err := os.Stat(r.path)
 	if err == nil {
 		return nil
 	}
 	if !os.IsNotExist(err) {
-		return err
+		return fmt.Errorf("cannot get stat on repo: %v", err)
 	}
 
-	cmd := exec.Command("git", "clone", string(r.url), r.path)
+	cmd := exec.Command("git", "clone", "--depth=50", string(r.url), r.path)
+	cmd.Env = append(os.Environ(), "GIT_LFS_SKIP_SMUDGE=1")
 	err = cmd.Run()
 	if err != nil {
-		return err
+		return fmt.Errorf("cannot do git clone: %v", err)
 	}
 	return nil
 }
 
-func (r Repo) fetch() error {
+func (r Repo) Fetch() error {
 	_, err := os.Stat(r.path)
 	if err != nil {
-		return err
+		return fmt.Errorf("cannot get stat on repo: %v", err)
 	}
 
-	cmd := exec.Command("git", "fetch")
-	cmd.Dir = r.path
-	err = cmd.Run()
+	err = r.run(r.path, "git", "fetch", "origin")
 	if err != nil {
-		return err
+		return fmt.Errorf("cannot do git fetch: %v", err)
 	}
 	return nil
 }
 
-func (r Repo) checkout(branch string) (Path, error) {
-	target, err := ioutil.TempDir("", branch)
+func (r Repo) Checkout(branch string) (Path, error) {
+	slug := strings.ReplaceAll(branch, "/", "_")
+	target, err := ioutil.TempDir("", slug)
 	if err != nil {
 		return "", fmt.Errorf("cannot create tmp dir: %v", err)
 	}
-	defer os.RemoveAll(target)
 	err = copy.Copy(r.path, target)
 	if err != nil {
 		return "", fmt.Errorf("cannot copy repo: %v", err)
 	}
 
-	cmd := exec.Command("git", "checkout", branch)
-	cmd.Dir = target
-	err = cmd.Run()
+	err = r.run(target, "git", "checkout", "-b", branch)
 	if err != nil {
-		return "", fmt.Errorf("cannot checkout: %v", err)
+		return "", fmt.Errorf("cannot do git checkout: %v", err)
+	}
+
+	err = r.run(target, "git", "pull", "--set-upstream", "origin", branch)
+	if err != nil {
+		return "", fmt.Errorf("cannot do git pull: %v", err)
 	}
 	return target, nil
 }
 
-func (r Repo) Checkout(branch string) (Path, error) {
-	err := r.clone()
+func (Repo) run(dir string, name string, args ...string) error {
+	cmd := exec.Command(name, args...)
+	cmd.Dir = dir
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+	err := cmd.Run()
 	if err != nil {
-		return "", err
+		return fmt.Errorf("cannot run command: %v: %s", err, stderr.String())
 	}
-	err = r.fetch()
-	if err != nil {
-		return "", err
-	}
-	return r.checkout(branch)
+	return nil
 }

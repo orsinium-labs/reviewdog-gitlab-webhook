@@ -1,0 +1,5 @@
+[[handler]]
+format = "text"
+
+[fields]
+message = "message"

@@ -1,3 +1,5 @@
 config.toml
 statik/
 review.bin
+/repos/
+fake_hook.json
