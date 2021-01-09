@@ -12,13 +12,21 @@ import (
 	_ "nico-lab.com/x/review/statik"
 )
 
+type Tool struct {
+	Name    string
+	Format  string
+	Command []string
+}
+
 type Server struct {
 	Address string
 	Repos   Path
 	Secret  string
 	Token   string
 	BaseURL string `toml:"base_url"`
-	logger  *onelog.Logger
+	Tools   []Tool `toml:"tool"`
+
+	logger *onelog.Logger
 }
 
 func (s Server) Handle(writer http.ResponseWriter, request *http.Request) {
@@ -103,25 +111,27 @@ func (s Server) review(body []byte) {
 	}
 	reviewer = reviewer.ForPR(json)
 
-	s.logger.InfoWith("review").
-		String("repo", reviewer.Repo).
-		String("tool", "flake8").
-		String("state", "running").
-		Write()
-	err = reviewer.Flake8()
-	if err != nil {
-		s.logger.ErrorWith("review").
+	for _, tool := range s.Tools {
+		s.logger.InfoWith("review").
 			String("repo", reviewer.Repo).
-			String("tool", "flake8").
-			Err("error", err).
+			String("tool", tool.Name).
+			String("state", "running").
 			Write()
-		return
+		err = reviewer.Review(tool.Format, tool.Command)
+		if err != nil {
+			s.logger.ErrorWith("review").
+				String("repo", reviewer.Repo).
+				String("tool", tool.Name).
+				Err("error", err).
+				Write()
+			return
+		}
+		s.logger.InfoWith("review").
+			String("repo", reviewer.Repo).
+			String("tool", tool.Name).
+			String("state", "finished").
+			Write()
 	}
-	s.logger.InfoWith("review").
-		String("repo", reviewer.Repo).
-		String("tool", "flake8").
-		String("state", "finished").
-		Write()
 
 }
 

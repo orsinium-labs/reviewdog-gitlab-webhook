@@ -1,0 +1,10 @@
+address = ":8080"
+repos = "./repos"
+secret = "something-random"
+token = "your personal gitlab secret token"
+base_url = "https://gitlab.com/api/v4"
+
+[[tool]]
+name = "flake8"
+format = "flake8"
+command = ["flake8", "--max-line-length=120", "--exit-zero"]

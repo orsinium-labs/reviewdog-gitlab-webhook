@@ -60,7 +60,7 @@ func (r Reviewer) Validate() error {
 	return nil
 }
 
-func (r Reviewer) Review(format string, reader io.Reader) error {
+func (r Reviewer) review(format string, reader io.Reader) error {
 	parser, err := parser.New(&parser.Option{FormatName: format})
 	if err != nil {
 		return err
@@ -97,10 +97,10 @@ func (r Reviewer) Review(format string, reader io.Reader) error {
 	return dog.Run(ctx, reader)
 }
 
-func (r Reviewer) Flake8() error {
+func (r Reviewer) Review(format string, command []string) error {
 	reader, writer := io.Pipe()
 
-	cmd := exec.Command("flake8", "--max-line-length=120", "--exit-zero")
+	cmd := exec.Command(command[0], command[1:]...)
 	cmd.Dir = r.Path
 	cmd.Stdout = writer
 	var stderr bytes.Buffer
@@ -111,7 +111,7 @@ func (r Reviewer) Flake8() error {
 		writer.Close()
 	}()
 
-	err := r.Review("flake8", reader)
+	err := r.review(format, reader)
 	if cmderr != nil {
 		return fmt.Errorf("error running command: %v: %s", cmderr, stderr.String())
 	}
