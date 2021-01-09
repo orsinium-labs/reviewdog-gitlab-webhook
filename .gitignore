@@ -2,4 +2,4 @@
 statik/
 review.bin
 /repos/
-fake_hook.json
+*_hook.json

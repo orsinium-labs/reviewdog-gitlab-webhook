@@ -70,7 +70,7 @@ func (s Server) review(body []byte) {
 		s.logger.Error("url is empty")
 		return
 	}
-	sha := json.Get("last_commit.id").String()
+	sha := json.Get("object_attributes.last_commit.id").String()
 	if sha == "" {
 		s.logger.Error("sha is empty")
 		return

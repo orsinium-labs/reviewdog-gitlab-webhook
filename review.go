@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"os/exec"
+	"strings"
 
 	"github.com/reviewdog/reviewdog"
 	"github.com/reviewdog/reviewdog/filter"
@@ -28,10 +29,16 @@ type Reviewer struct {
 }
 
 func (r Reviewer) ForPR(json gjson.Result) Reviewer {
-	r.Owner = json.Get("project.namespace").String()
-	r.Repo = json.Get("project.name").String()
 	r.PullRequest = int(json.Get("object_attributes.iid").Int())
-	r.SHA = json.Get("last_commit.id").String()
+	r.SHA = json.Get("object_attributes.last_commit.id").String()
+
+	repoPath := json.Get("object_attributes.target.path_with_namespace").String()
+	parts := strings.SplitN(repoPath, "/", 2)
+	if len(parts) != 2 {
+		return r
+	}
+	r.Owner = parts[0]
+	r.Repo = parts[1]
 	return r
 }
 
@@ -80,7 +87,8 @@ func (r Reviewer) review(format string, reader io.Reader) error {
 		return err
 	}
 
-	diff, err := gitlabservice.NewGitLabMergeRequestDiff(client, r.Owner, r.Repo, r.PullRequest, r.SHA)
+	diff, err := gitlabservice.NewGitLabMergeRequestDiff(
+		client, r.Owner, r.Repo, r.PullRequest, r.SHA)
 	if err != nil {
 		return err
 	}
