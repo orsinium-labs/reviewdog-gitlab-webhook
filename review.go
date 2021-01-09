@@ -86,7 +86,7 @@ func (r Reviewer) review(format string, reader io.Reader) error {
 	}
 
 	dog := reviewdog.NewReviewdog(
-		"reviewdog",
+		"Mr. Meeseeks",
 		parser,
 		comment,
 		diff,
@@ -99,6 +99,7 @@ func (r Reviewer) review(format string, reader io.Reader) error {
 
 func (r Reviewer) Review(format string, command []string) error {
 	reader, writer := io.Pipe()
+	defer reader.Close()
 
 	cmd := exec.Command(command[0], command[1:]...)
 	cmd.Dir = r.Path
@@ -108,7 +109,10 @@ func (r Reviewer) Review(format string, command []string) error {
 	var cmderr error
 	go func() {
 		cmderr = cmd.Run()
-		writer.Close()
+		err := writer.Close()
+		if cmderr == nil {
+			cmderr = err
+		}
 	}()
 
 	err := r.review(format, reader)

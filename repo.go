@@ -9,7 +9,6 @@ import (
 	"os"
 	"os/exec"
 	"path"
-	"strings"
 
 	"github.com/otiai10/copy"
 )
@@ -54,7 +53,7 @@ func (r Repo) Clone() error {
 		return fmt.Errorf("cannot get stat on repo: %v", err)
 	}
 
-	cmd := exec.Command("git", "clone", "--depth=50", string(r.url), r.path)
+	cmd := exec.Command("git", "clone", string(r.url), r.path)
 	cmd.Env = append(os.Environ(), "GIT_LFS_SKIP_SMUDGE=1")
 	err = cmd.Run()
 	if err != nil {
@@ -69,34 +68,29 @@ func (r Repo) Fetch() error {
 		return fmt.Errorf("cannot get stat on repo: %v", err)
 	}
 
-	err = r.run(r.path, "git", "fetch", "origin")
+	err = r.run(r.path, "git", "pull", "origin")
 	if err != nil {
-		return fmt.Errorf("cannot do git fetch: %v", err)
+		return fmt.Errorf("cannot do git pull: %v", err)
 	}
 	return nil
 }
 
-func (r Repo) Checkout(branch string) (Path, error) {
-	slug := strings.ReplaceAll(branch, "/", "_")
-	target, err := ioutil.TempDir("", slug)
+func (r Repo) Checkout(sha string) (Path, error) {
+	targetRepo, err := ioutil.TempDir("", sha)
 	if err != nil {
 		return "", fmt.Errorf("cannot create tmp dir: %v", err)
 	}
-	err = copy.Copy(r.path, target)
+	err = copy.Copy(r.path, targetRepo)
 	if err != nil {
 		return "", fmt.Errorf("cannot copy repo: %v", err)
 	}
 
-	err = r.run(target, "git", "checkout", "-b", branch)
+	err = r.run(targetRepo, "git", "checkout", "--detach", sha)
 	if err != nil {
 		return "", fmt.Errorf("cannot do git checkout: %v", err)
 	}
 
-	err = r.run(target, "git", "pull", "--set-upstream", "origin", branch)
-	if err != nil {
-		return "", fmt.Errorf("cannot do git pull: %v", err)
-	}
-	return target, nil
+	return targetRepo, nil
 }
 
 func (Repo) run(dir string, name string, args ...string) error {

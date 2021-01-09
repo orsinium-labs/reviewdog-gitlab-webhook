@@ -70,9 +70,9 @@ func (s Server) review(body []byte) {
 		s.logger.Error("url is empty")
 		return
 	}
-	branch := json.Get("object_attributes.source_branch").String()
-	if branch == "" {
-		s.logger.Error("branch is empty")
+	sha := json.Get("last_commit.id").String()
+	if sha == "" {
+		s.logger.Error("sha is empty")
 		return
 	}
 
@@ -96,13 +96,27 @@ func (s Server) review(body []byte) {
 		return
 	}
 	s.logger.InfoWith("checking out").String("url", url).Write()
-	path, err := repo.Checkout(branch)
+	path, err := repo.Checkout(sha)
 	if err != nil {
 		s.logger.ErrorWith("cannot checkout").Err("error", err).Write()
 		return
 	}
 	s.logger.InfoWith("repo operations finished").String("url", url).Write()
 	defer os.RemoveAll(path)
+
+	// We have to change the current workdir because reviewdog
+	// executes git commands there.
+	oldDir, err := os.Getwd()
+	if err != nil {
+		s.logger.ErrorWith("cannot get workdir").Err("error", err).Write()
+		return
+	}
+	defer os.Chdir(oldDir) //nolint
+	err = os.Chdir(path)
+	if err != nil {
+		s.logger.ErrorWith("cannot change workdir").Err("error", err).Write()
+		return
+	}
 
 	reviewer := Reviewer{
 		Path:    path,
