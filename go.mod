@@ -1,4 +1,4 @@
-module nico-lab.com/x/review
+module github.com/orsinium-labs/reviewdog-gitlab-webhook
 
 go 1.15
 

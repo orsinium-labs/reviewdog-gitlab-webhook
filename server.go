@@ -7,9 +7,9 @@ import (
 
 	"github.com/BurntSushi/toml"
 	"github.com/francoispqt/onelog"
+	_ "github.com/orsinium-labs/reviewdog-gitlab-webhook/statik"
 	"github.com/rakyll/statik/fs"
 	"github.com/tidwall/gjson"
-	_ "nico-lab.com/x/review/statik"
 )
 
 type Tool struct {
